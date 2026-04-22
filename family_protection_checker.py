@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import requests
 import json
-import base64  # ⭐ 已補回
+import base64
 
 # ==================== 靜默儲存到 Google Sheets ====================
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxuoIJBs_MHy7XekB8RiOCtyiyiZghm22wS-8HRBv2IfZ9-dti9-1kMlo3PA0kNG4Ti/exec"
@@ -16,7 +16,7 @@ def silent_save_to_gs(data):
         payload = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "name": data.get("name", ""),
-            "phone": data.get("phone", ""),
+            "phone": data.get("phone", ""),          # ⭐ 已加入電話
             "risk": data.get("risk", ""),
             "budget": data.get("budget", 0),
             "has_medical": data.get("has_medical", ""),
@@ -62,7 +62,9 @@ if st.session_state.step == 1:
     with col3:
         occupation = st.text_input("職業")
     
-    # ⭐ 加返日期選擇
+    # 電話號碼輸入（獨立一行，清楚顯示）
+    phone = st.text_input("聯絡電話", placeholder="例如 91234567")
+    
     selected_date = st.date_input("檢視日期", datetime.today())
     
     has_spouse = st.radio("有冇配偶？", ["有", "冇"], horizontal=True)
@@ -105,7 +107,8 @@ if st.session_state.step == 1:
                 st.session_state.client_data["name"] = name
                 st.session_state.client_data["age"] = age
                 st.session_state.client_data["occupation"] = occupation
-                st.session_state.client_data["date"] = str(selected_date)  # ⭐ 儲存日期
+                st.session_state.client_data["phone"] = phone          # ⭐ 儲存電話
+                st.session_state.client_data["date"] = str(selected_date)
                 st.session_state.client_data["has_spouse"] = has_spouse
                 st.session_state.client_data["spouse_name"] = spouse_name
                 st.session_state.client_data["spouse_age"] = spouse_age
@@ -294,7 +297,7 @@ elif st.session_state.step == 5:
     st.header("📄 第五步：全方位家庭保障報告")
     data = st.session_state.client_data
 
-    # 安全讀取日期（如果冇 date 就用今日）
+    # 安全讀取日期
     report_date = data.get('date', datetime.today().strftime('%Y-%m-%d'))
     st.markdown(f"**客人姓名**：{data.get('name', '未提供')}  &nbsp;&nbsp; **檢視日期**：{report_date}")
     st.markdown("---")
@@ -378,7 +381,7 @@ elif st.session_state.step == 5:
 
     # 只有一個按鈕：儲蓄記錄
     if st.button("💾 儲蓄記錄"):
-        silent_save_to_gs(data)
+        silent_save_to_gs(data)   # 靜默儲存（包含電話）
         b64 = base64.b64encode(report_text.encode()).decode()
         href = f'<a href="data:text/plain;base64,{b64}" download="保險報告_{data["name"]}.txt">📥 按此下載報告</a>'
         st.markdown(href, unsafe_allow_html=True)
