@@ -343,7 +343,7 @@ elif st.session_state.step == 5:
     recommended_life = annual_expense * 10 + edu_needed + mortgage
 
     # 顯示報告內容（保持原有樣式）
-    st.markdown(f"**客人姓名**：{data['name']}  &nbsp;&nbsp; **檢視日期**：{data['date']}")
+    st.markdown(f"**客人姓名**：{data.get('name','未提供')}  &nbsp;&nbsp; **檢視日期**：{data.get('date','未提供')}")
     st.markdown("---")
 
     st.markdown("### 👨‍👩‍👧‍👦 家庭狀況")
