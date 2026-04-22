@@ -336,6 +336,10 @@ elif st.session_state.step == 5:
     st.header("📄 第五步：全方位家庭保障報告")
     data = st.session_state.client_data
 
+    # 安全讀取日期
+    report_date = data.get('date', datetime.today().strftime('%Y-%m-%d'))
+    st.markdown(f"**客人姓名**：{data.get('name', '未提供')}  &nbsp;&nbsp; **檢視日期**：{report_date}")
+
     # 計算建議值（與你原有報告一致）
     annual_expense = data.get("monthly_expense", 0) * 12
     edu_needed = data.get("edu_years", 0) * data.get("edu_cost", 0)
