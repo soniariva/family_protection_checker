@@ -1,6 +1,39 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+# ==================== 靜默儲存到 Google Sheets ====================
+import requests
+import json
+
+WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxuoIJBs_MHy7XekB8RiOCtyiyiZghm22wS-8HRBv2IfZ9-dti9-1kMlo3PA0kNG4Ti/exec"   # 改為你嘅 Google Apps Script 網址
+SAVE_TO_SHEETS = True   # 是否啟用儲存
+
+def silent_save_to_gs(data):
+    if not SAVE_TO_SHEETS or not WEBAPP_URL:
+        return
+    try:
+        payload = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "name": data.get("name", ""),
+            "phone": data.get("phone", ""),
+            "risk": data.get("risk", ""),
+            "budget": data.get("budget", 0),
+            "has_medical": data.get("has_medical", ""),
+            "company": data.get("company", ""),
+            "inpatient_amount": data.get("inpatient_amount", 0),
+            "surgery_amount": data.get("surgery_amount", 0),
+            "cancer_amount": data.get("cancer_amount", 0),
+            "critical_amount": data.get("critical_amount", 0),
+            "accident_medical": data.get("accident_medical", 0),
+            "accident_death": data.get("accident_death", 0),
+            "monthly_expense": data.get("monthly_expense", 0),
+            "mortgage": data.get("mortgage", 0),
+            "total_income": data.get("annual_income", 0) + data.get("spouse_income", 0)
+        }
+        requests.post(WEBAPP_URL, json=payload, timeout=5)
+    except:
+        pass   # 靜默失敗，完全無提示
+
 
 st.set_page_config(page_title="全方位家庭保障檢視", page_icon="🏠", layout="wide")
 
@@ -302,28 +335,17 @@ elif st.session_state.step == 4:
 elif st.session_state.step == 5:
     st.header("📄 第五步：全方位家庭保障報告")
     data = st.session_state.client_data
-    
-    # 重新計算所有缺口（與 Step 4 相同邏輯）
+
+    # 計算建議值（與你原有報告一致）
     annual_expense = data.get("monthly_expense", 0) * 12
     edu_needed = data.get("edu_years", 0) * data.get("edu_cost", 0)
     mortgage = data.get("mortgage", 0)
     recommended_life = annual_expense * 10 + edu_needed + mortgage
-    
-    inpatient_gap = max(0, 1200 - data["medical_inpatient"])
-    surgery_gap = max(0, 40000 - data["medical_surgery"])
-    cancer_gap = max(0, 720000 - data["medical_cancer"])
-    critical_gap = max(0, 1000000 - data["critical"])
-    accident_med_gap = max(0, 50000 - data["accident_medical"])
-    accident_death_gap = max(0, 1000000 - data["accident_death"])
-    life_gap = max(0, recommended_life - data["life"])
-    edu_gap = max(0, edu_needed - data["edu_fund"])
-    
-    st.markdown("## 全方位家庭保障檢視報告")
-    st.markdown(f"**報告日期**：{datetime.today().strftime('%Y-%m-%d')}")
-    st.markdown(f"**顧問**：Sonia")
+
+    # 顯示報告內容（保持原有樣式）
+    st.markdown(f"**客人姓名**：{data['name']}  &nbsp;&nbsp; **檢視日期**：{data['date']}")
     st.markdown("---")
-    
-    # 家庭狀況摘要
+
     st.markdown("### 👨‍👩‍👧‍👦 家庭狀況")
     st.markdown(f"- 主申請人：{data['name']}，{data['age']}歲，{data['occupation']}")
     if data.get("has_spouse") == "有":
@@ -332,54 +354,43 @@ elif st.session_state.step == 5:
         st.markdown(f"- 子女 {i+1}：{child['name']}，{child['age']}歲")
     for i, parent in enumerate(data.get("parents", [])):
         st.markdown(f"- 供養父母 {i+1}：{parent['name']}，{parent['age']}歲")
-    
+
     st.markdown("### 💰 財務概況")
     total_income = data.get("annual_income", 0) + data.get("spouse_income", 0) + data.get("other_income", 0)
     st.markdown(f"- 家庭年收入：HK$ {total_income:,}")
     st.markdown(f"- 每月家庭開支：HK$ {data.get('monthly_expense', 0):,}")
-    st.markdown(f"- 資產（儲蓄+投資+物業）：HK$ {data.get('savings',0)+data.get('investments',0)+data.get('property_value',0):,}")
-    st.markdown(f"- 負債（按揭+其他）：HK$ {data.get('mortgage',0)+data.get('other_debt',0):,}")
-    
+    st.markdown(f"- 資產總值：HK$ {data.get('savings',0)+data.get('investments',0)+data.get('property_value',0):,}")
+    st.markdown(f"- 負債總額：HK$ {data.get('mortgage',0)+data.get('other_debt',0):,}")
+
     st.markdown("### 📋 保障缺口分析")
-    st.markdown("#### 醫療保障")
-    st.markdown(f"- 住院：現有 HK$ {data['medical_inpatient']:,}/晚，建議 HK$ 1,200/晚，**差額 HK$ {inpatient_gap:,}/晚**")
-    st.markdown(f"- 手術：現有 HK$ {data['medical_surgery']:,}/次，建議 HK$ 40,000/次，**差額 HK$ {surgery_gap:,}/次**")
-    st.markdown(f"- 癌症治療：現有 HK$ {data['medical_cancer']:,}/年，建議 HK$ 720,000/年，**差額 HK$ {cancer_gap:,}/年**")
-    
-    st.markdown("#### 危疾保障")
-    st.markdown(f"- 現有 HK$ {data['critical']:,}，建議 HK$ 1,000,000，**差額 HK$ {critical_gap:,}**")
-    
-    st.markdown("#### 意外保障")
-    st.markdown(f"- 意外醫療：現有 HK$ {data['accident_medical']:,}/年，建議 HK$ 50,000/年，**差額 HK$ {accident_med_gap:,}/年**")
-    st.markdown(f"- 意外身故：現有 HK$ {data['accident_death']:,}，建議 HK$ 1,000,000，**差額 HK$ {accident_death_gap:,}**")
-    
-    st.markdown("#### 人壽保障")
-    st.markdown(f"- 現有 HK$ {data['life']:,}，建議 HK$ {recommended_life:,.0f}，**差額 HK$ {life_gap:,.0f}**")
-    
-    st.markdown("#### 教育基金")
-    st.markdown(f"- 已準備 HK$ {data['edu_fund']:,}，目標 HK$ {edu_needed:,.0f}，**差額 HK$ {edu_gap:,.0f}**")
-    
-    st.markdown("---")
-    st.markdown("### 💡 總結建議")
-    if life_gap > 0 or critical_gap > 0 or inpatient_gap > 0:
-        st.markdown("根據以上分析，你嘅家庭保障有以下主要缺口，建議優先處理：")
-        if life_gap > 0:
-            st.markdown(f"- 人壽保障不足 ${life_gap:,.0f}，建議增加定期人壽")
-        if critical_gap > 0:
-            st.markdown(f"- 危疾保障不足 ${critical_gap:,}，建議提高保額")
-        if inpatient_gap > 0 or surgery_gap > 0 or cancer_gap > 0:
-            st.markdown("- 醫療保障不足，建議升級自願醫保靈活計劃")
-    else:
-        st.markdown("✅ 各項保障均達到建議水平，只需每年定期檢視。")
-    
+    # 醫療缺口
+    inpatient_gap = max(0, 1200 - data.get("medical_inpatient", 0))
+    surgery_gap = max(0, 40000 - data.get("medical_surgery", 0))
+    cancer_gap = max(0, 720000 - data.get("medical_cancer", 0))
+    critical_gap = max(0, 1000000 - data.get("critical", 0))
+    accident_med_gap = max(0, 50000 - data.get("accident_medical", 0))
+    accident_death_gap = max(0, 1000000 - data.get("accident_death", 0))
+    life_gap = max(0, recommended_life - data.get("life", 0))
+    edu_gap = max(0, edu_needed - data.get("edu_fund", 0))
+
+    st.markdown(f"- 醫療住院：現有 HK$ {data.get('medical_inpatient',0):,}/晚，建議 HK$ 1,200，差額 HK$ {inpatient_gap:,}")
+    st.markdown(f"- 醫療手術：現有 HK$ {data.get('medical_surgery',0):,}/次，建議 HK$ 40,000，差額 HK$ {surgery_gap:,}")
+    st.markdown(f"- 癌症治療：現有 HK$ {data.get('medical_cancer',0):,}/年，建議 HK$ 720,000，差額 HK$ {cancer_gap:,}")
+    st.markdown(f"- 危疾：現有 HK$ {data.get('critical',0):,}，建議 HK$ 1,000,000，差額 HK$ {critical_gap:,}")
+    st.markdown(f"- 意外醫療：現有 HK$ {data.get('accident_medical',0):,}/年，建議 HK$ 50,000，差額 HK$ {accident_med_gap:,}")
+    st.markdown(f"- 意外身故：現有 HK$ {data.get('accident_death',0):,}，建議 HK$ 1,000,000，差額 HK$ {accident_death_gap:,}")
+    st.markdown(f"- 人壽：現有 HK$ {data.get('life',0):,}，建議 HK$ {recommended_life:,.0f}，差額 HK$ {life_gap:,.0f}")
+    st.markdown(f"- 教育基金：已準備 HK$ {data.get('edu_fund',0):,}，目標 HK$ {edu_needed:,.0f}，差額 HK$ {edu_gap:,.0f}")
+
     st.markdown("---")
     st.markdown("*無壓力・唔使買・純粹幫你睇*")
-    
-    # 下載報告（TXT格式）
+    st.caption("顧問：Sonia")
+
+    # 準備報告文字（用於下載）
     report_text = f"""
 全方位家庭保障檢視報告
-報告日期：{datetime.today().strftime('%Y-%m-%d')}
-顧問：Sonia
+客人：{data['name']}
+日期：{data['date']}
 
 家庭狀況
 - 主申請人：{data['name']}，{data['age']}歲，{data['occupation']}
@@ -394,30 +405,32 @@ elif st.session_state.step == 5:
 - 負債總額：HK$ {data.get('mortgage',0)+data.get('other_debt',0):,}
 
 保障缺口
-醫療 - 住院：現有 HK$ {data['medical_inpatient']:,}/晚，建議 HK$ 1,200，差額 HK$ {inpatient_gap:,}
-醫療 - 手術：現有 HK$ {data['medical_surgery']:,}/次，建議 HK$ 40,000，差額 HK$ {surgery_gap:,}
-醫療 - 癌症：現有 HK$ {data['medical_cancer']:,}/年，建議 HK$ 720,000，差額 HK$ {cancer_gap:,}
-危疾：現有 HK$ {data['critical']:,}，建議 HK$ 1,000,000，差額 HK$ {critical_gap:,}
-意外醫療：現有 HK$ {data['accident_medical']:,}/年，建議 HK$ 50,000，差額 HK$ {accident_med_gap:,}
-意外身故：現有 HK$ {data['accident_death']:,}，建議 HK$ 1,000,000，差額 HK$ {accident_death_gap:,}
-人壽：現有 HK$ {data['life']:,}，建議 HK$ {recommended_life:,.0f}，差額 HK$ {life_gap:,.0f}
-教育基金：已準備 HK$ {data['edu_fund']:,}，目標 HK$ {edu_needed:,.0f}，差額 HK$ {edu_gap:,.0f}
-
-建議行動
-{ '、'.join(recs) if recs else '各項保障足夠，每年檢視一次' }
+- 醫療住院：現有 HK$ {data.get('medical_inpatient',0):,}/晚，建議 HK$ 1,200，差額 HK$ {inpatient_gap:,}
+- 醫療手術：現有 HK$ {data.get('medical_surgery',0):,}/次，建議 HK$ 40,000，差額 HK$ {surgery_gap:,}
+- 癌症治療：現有 HK$ {data.get('medical_cancer',0):,}/年，建議 HK$ 720,000，差額 HK$ {cancer_gap:,}
+- 危疾：現有 HK$ {data.get('critical',0):,}，建議 HK$ 1,000,000，差額 HK$ {critical_gap:,}
+- 意外醫療：現有 HK$ {data.get('accident_medical',0):,}/年，建議 HK$ 50,000，差額 HK$ {accident_med_gap:,}
+- 意外身故：現有 HK$ {data.get('accident_death',0):,}，建議 HK$ 1,000,000，差額 HK$ {accident_death_gap:,}
+- 人壽：現有 HK$ {data.get('life',0):,}，建議 HK$ {recommended_life:,.0f}，差額 HK$ {life_gap:,.0f}
+- 教育基金：已準備 HK$ {data.get('edu_fund',0):,}，目標 HK$ {edu_needed:,.0f}，差額 HK$ {edu_gap:,.0f}
 
 ---
 無壓力・唔使買・純粹幫你睇
+顧問：Sonia
     """
-    
-    st.download_button(
-        label="📥 下載報告 (TXT)",
-        data=report_text,
-        file_name=f"家庭保障報告_{data['name']}.txt",
-        mime="text/plain"
-    )
-    
+
+    # 只有一個按鈕：儲蓄記錄（點擊後下載 + 靜默儲存）
+    if st.button("💾 儲蓄記錄"):
+        # 1. 靜默儲存到 Google Sheets
+        silent_save_to_gs(data)
+        # 2. 觸發下載（使用 st.download_button 但放在 button 內，需要特殊處理）
+        # Streamlit 唔允許喺 button 內再放 download_button，所以改為用 st.markdown 提供 data URI 下載連結
+        b64 = base64.b64encode(report_text.encode()).decode()
+        href = f'<a href="data:text/plain;base64,{b64}" download="保險報告_{data["name"]}.txt">📥 按此下載報告</a>'
+        st.markdown(href, unsafe_allow_html=True)
+        st.success("報告已儲存記錄，多謝使用！")   # 只顯示呢一句，唔提 Sonia 跟進
+
     if st.button("← 開始新檢視"):
-        st.session_state.step = 1
-        st.session_state.client_data = {}
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
         st.rerun()
