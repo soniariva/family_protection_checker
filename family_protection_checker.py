@@ -10,30 +10,59 @@ WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxuoIJBs_MHy7XekB8RiOCtyiy
 SAVE_TO_SHEETS = True
 
 def silent_save_to_gs(data):
+    """將所有客人資料靜默儲存到 Google Sheets"""
     if not SAVE_TO_SHEETS or not WEBAPP_URL:
         return
     try:
+        # 處理子女和父母資料（轉為 JSON 字串）
+        children_list = data.get("children", [])
+        parents_list = data.get("parents", [])
+        children_str = json.dumps(children_list, ensure_ascii=False) if children_list else ""
+        parents_str = json.dumps(parents_list, ensure_ascii=False) if parents_list else ""
+
         payload = {
+            # Step 1: 基本資料
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "name": data.get("name", ""),
-            "phone": data.get("phone", ""),          # ⭐ 已加入電話
-            "risk": data.get("risk", ""),
-            "budget": data.get("budget", 0),
-            "has_medical": data.get("has_medical", ""),
-            "company": data.get("company", ""),
-            "inpatient_amount": data.get("medical_inpatient", 0),
-            "surgery_amount": data.get("medical_surgery", 0),
-            "cancer_amount": data.get("medical_cancer", 0),
-            "critical_amount": data.get("critical", 0),
-            "accident_medical": data.get("accident_medical", 0),
-            "accident_death": data.get("accident_death", 0),
+            "phone": data.get("phone", ""),
+            "age": data.get("age", 0),
+            "occupation": data.get("occupation", ""),
+            "date": data.get("date", ""),
+            "has_spouse": data.get("has_spouse", ""),
+            "spouse_name": data.get("spouse_name", ""),
+            "spouse_age": data.get("spouse_age", 0),
+            "spouse_occ": data.get("spouse_occ", ""),
+            "children": children_str,
+            "parents": parents_str,
+            
+            # Step 2: 財務狀況
+            "annual_income": data.get("annual_income", 0),
+            "spouse_income": data.get("spouse_income", 0),
+            "other_income": data.get("other_income", 0),
+            "savings": data.get("savings", 0),
+            "investments": data.get("investments", 0),
+            "property_value": data.get("property_value", 0),
             "monthly_expense": data.get("monthly_expense", 0),
             "mortgage": data.get("mortgage", 0),
-            "total_income": data.get("annual_income", 0) + data.get("spouse_income", 0)
+            "other_debt": data.get("other_debt", 0),
+            "edu_years": data.get("edu_years", 0),
+            "edu_cost": data.get("edu_cost", 0),
+            
+            # Step 3: 現有保障
+            "medical_inpatient": data.get("medical_inpatient", 0),
+            "medical_surgery": data.get("medical_surgery", 0),
+            "medical_cancer": data.get("medical_cancer", 0),
+            "critical": data.get("critical", 0),
+            "accident_medical": data.get("accident_medical", 0),
+            "accident_death": data.get("accident_death", 0),
+            "life": data.get("life", 0),
+            "savings_insurance": data.get("savings_insurance", 0),
+            "edu_fund": data.get("edu_fund", 0),
         }
         requests.post(WEBAPP_URL, json=payload, timeout=5)
-    except:
-        pass
+    except Exception as e:
+        # 靜默失敗，不影響用戶體驗
+        print(f"儲存失敗: {e}")  # 可選：喺 console 睇錯誤
 
 # ==================== 頁面設定 ====================
 st.set_page_config(page_title="全方位家庭保障檢視", page_icon="🏠", layout="wide")
@@ -62,9 +91,7 @@ if st.session_state.step == 1:
     with col3:
         occupation = st.text_input("職業")
     
-    # 電話號碼輸入（獨立一行，清楚顯示）
     phone = st.text_input("聯絡電話", placeholder="例如 91234567")
-    
     selected_date = st.date_input("檢視日期", datetime.today())
     
     has_spouse = st.radio("有冇配偶？", ["有", "冇"], horizontal=True)
@@ -107,7 +134,7 @@ if st.session_state.step == 1:
                 st.session_state.client_data["name"] = name
                 st.session_state.client_data["age"] = age
                 st.session_state.client_data["occupation"] = occupation
-                st.session_state.client_data["phone"] = phone          # ⭐ 儲存電話
+                st.session_state.client_data["phone"] = phone
                 st.session_state.client_data["date"] = str(selected_date)
                 st.session_state.client_data["has_spouse"] = has_spouse
                 st.session_state.client_data["spouse_name"] = spouse_name
@@ -381,7 +408,7 @@ elif st.session_state.step == 5:
 
     # 只有一個按鈕：儲蓄記錄
     if st.button("💾 儲蓄記錄"):
-        silent_save_to_gs(data)   # 靜默儲存（包含電話）
+        silent_save_to_gs(data)   # 靜默儲存所有資料
         b64 = base64.b64encode(report_text.encode()).decode()
         href = f'<a href="data:text/plain;base64,{b64}" download="保險報告_{data["name"]}.txt">📥 按此下載報告</a>'
         st.markdown(href, unsafe_allow_html=True)
